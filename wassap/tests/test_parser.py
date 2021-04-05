@@ -257,3 +257,45 @@ def test_get_author_average_content_length():
     assert int(counter['John']) == 12
     assert int(counter['Jack']) == 7
     assert int(counter['Gerald']) == 13
+
+def test_subscript_multiple_lines():
+    # arrange
+    lines = [
+        '28/08/2020, 18:33 - John: hello jack old pal',
+        '28/08/2020, 18:34 - Jack: sup mate',
+        '28/08/2020, 18:35 - Gerald: what about me',
+        '28/08/2020, 18:35 - John: what about you?',
+        '28/08/2020, 18:35 - John: lols',
+        '28/08/2020, 18:36 - Jack: looool',
+    ]
+
+    # act
+    c = Chat(lines)
+
+    subbed = c[:2]
+
+    #assert 
+    assert isinstance(subbed, Chat)
+    assert len(subbed) == 2
+    assert subbed.participants == {'John', 'Jack'}
+
+def test_subscript_single_value():
+    # arrange
+    lines = [
+        '28/08/2020, 18:33 - John: hello jack old pal',
+        '28/08/2020, 18:34 - Jack: sup mate',
+        '28/08/2020, 18:35 - Gerald: what about me',
+        '28/08/2020, 18:35 - John: what about you?',
+        '28/08/2020, 18:35 - John: lols',
+        '28/08/2020, 18:36 - Jack: looool',
+    ]
+
+    # act
+    c = Chat(lines)
+
+    subbed = c[1]
+
+    #assert 
+    assert isinstance(subbed, Message)
+    assert subbed.author == 'Jack'
+    assert subbed.content == 'sup mate'

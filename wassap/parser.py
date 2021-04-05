@@ -91,8 +91,9 @@ class Chat(object):
 
     def __init__(self, lines: List[str] = None):
         if lines:
+            self._raw_lines = lines
             self.messages = self._build_messages(lines)
-        self.df = None
+        self.df = pd.DataFrame()
 
 
     @classmethod
@@ -162,7 +163,7 @@ class Chat(object):
         """
         authors = {name: [] for name in self.participants}
         if add_to_df:
-            if not self.df:
+            if self.df.empty:
                 self.create_df()
 
         for i, m in enumerate(self.messages):
@@ -209,3 +210,11 @@ class Chat(object):
     # dunders
     def __len__(self):
         return len(self.messages)
+    
+    # support subscripts - return a new chat for a smaller slice
+    def __getitem__(self, key):
+        if isinstance(key,slice):
+            lines = self._raw_lines[key]
+            return Chat(lines)
+        else:
+            return self.messages[key]
