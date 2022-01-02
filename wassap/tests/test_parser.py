@@ -109,7 +109,7 @@ def test_to_df():
     c = Chat(lines)
 
     # act
-    df = c.create_df()
+    df = c.df
 
     # assert
     for t in df.time:

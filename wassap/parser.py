@@ -32,8 +32,6 @@ class Message(BaseModel):
             words = [stemmer.stem(word) for word in words]
         return words
 
-    # non-usage
-
     def __len__(self):
         return len(self.content)
 
@@ -69,7 +67,7 @@ class Message(BaseModel):
     
     @staticmethod
     def parse_line(line: str) -> Tuple[datetime.datetime, str, str]:
-        p_reg = re.compile(r'(^[0-9]{2}/[0-9]{2}/[0-9]{4}\, [0-9]{2}\:[0-9]{2}).*((?<=\- ).*?)\: (.*)$')
+        p_reg = re.compile(r'(^[0-9]{2}/[0-9]{2}/[0-9]{4}\, [0-9]{2}\:[0-9]{2}) - (.*?)\: (.*)$')
         try:
             time, author, content = p_reg.search(line).groups()
         except: 
@@ -92,7 +90,7 @@ class Chat(object):
         if lines:
             self._raw_lines = lines
             self.messages = self._build_messages(lines)
-        self.df = pd.DataFrame()
+        self.create_df()
 
 
     @classmethod
@@ -117,7 +115,6 @@ class Chat(object):
             for m in self.messages
         ]
         self.df = pd.DataFrame(data)
-        return self.df
 
     def get_messages_by_author(self, author: str) -> List[Message]:
         return [m for m in self.messages if m.author == author]
