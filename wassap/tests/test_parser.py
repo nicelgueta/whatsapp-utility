@@ -1,7 +1,7 @@
 
 import datetime
 from .data_factory import create_message_lines
-
+import pytest
 from ..parser import Message, Chat
 
 import numpy as np
@@ -120,46 +120,46 @@ def test_to_df():
         assert c == f'line {i+1}'
 
 
-"""
-PLEASE EXCUSE THE FOUL LANGUAGE IN THIS SECTION. IT'S ABSOLUTELY
-NECESSARY FOR THESE PARTICULAR TESTS. LOOK AWAY IF REQUIRED
-"""
 
-def test_list_by_foul_mouthed_expected():
+@pytest.fixture
+def word_list():
+    return ["beach", "sea", "ice cream", "bat"]
+
+def test_list_by_words_expected(word_list):
     # arrange
     lines = [
-        '28/08/2020, 18:33 - John: fuck shit',
-        '28/08/2020, 18:34 - Jack: shit',
-        '28/08/2020, 18:35 - John: its pissing cold',
+        '28/08/2020, 18:33 - John: beach sea',
+        '28/08/2020, 18:34 - Jack: bat',
+        '28/08/2020, 18:35 - John: we beaching today?',
 
     ]
     c = Chat(lines)
 
     # act
-    foul_mouth_counter = c.get_authors_by_foul_mouth()
+    word_counter = c.get_authors_by_words(word_list)
 
     # assert 
-    assert foul_mouth_counter['Jack'] == 1
-    assert foul_mouth_counter['John'] == 3 
+    assert word_counter['Jack'] == 1
+    assert word_counter['John'] == 3 
 
-def test_list_by_foul_mouthed_one_no_bad_words():
+def test_list_by_words_one_not_used(word_list):
     # arrange
     lines = [
-        '28/08/2020, 18:33 - John: fuck shit',
+        '28/08/2020, 18:33 - John: sea bat',
         '28/08/2020, 18:34 - Jack: Im well spoken',
-        '28/08/2020, 18:35 - John: its pissing cold',
+        '28/08/2020, 18:35 - John: we beaching today?',
 
     ]
     c = Chat(lines)
 
     # act
-    foul_mouth_counter = c.get_authors_by_foul_mouth()
+    word_counter = c.get_authors_by_words(word_list)
 
     # assert 
-    assert foul_mouth_counter['Jack'] == 0
-    assert foul_mouth_counter['John'] == 3 
+    assert word_counter['Jack'] == 0
+    assert word_counter['John'] == 3 
 
-def test_list_by_foul_mouthed_all_well_mannered():
+def test_list_by_words_none_present(word_list):
     # arrange
     lines = [
         '28/08/2020, 18:33 - John: hello jack',
@@ -170,33 +170,27 @@ def test_list_by_foul_mouthed_all_well_mannered():
     c = Chat(lines)
 
     # act
-    foul_mouth_counter = c.get_authors_by_foul_mouth()
+    word_counter = c.get_authors_by_words(word_list)
 
     # assert 
-    assert foul_mouth_counter['Jack'] == 0
-    assert foul_mouth_counter['John'] == 0
+    assert word_counter['Jack'] == 0
+    assert word_counter['John'] == 0
          
-def test_list_by_foul_mouthed_stem_variation():
+def test_list_by_words_stem_variation(word_list):
     # arrange
     lines = [
-        '28/08/2020, 18:33 - John: fucker fucking fucked',
-        '28/08/2020, 18:34 - Jack: shitty shite',
-        '28/08/2020, 18:35 - Gerald: dick dicked dicking',
+        '28/08/2020, 18:33 - John: beacher beaching beached',
+        '28/08/2020, 18:34 - Jack: sea seas',
 
     ]
     c = Chat(lines)
 
     # act
-    foul_mouth_counter = c.get_authors_by_foul_mouth()
+    word_counter = c.get_authors_by_words(word_list)
 
     # assert 
-    assert foul_mouth_counter['John'] == 3
-    assert foul_mouth_counter['Jack'] == 2
-    assert foul_mouth_counter['Gerald'] == 3
-
-"""
-Phew! that's over. Apologies for those mentally scarred from that
-"""
+    assert word_counter['John'] == 3
+    assert word_counter['Jack'] == 2
 
 def test_get_contributors():
     # arrange

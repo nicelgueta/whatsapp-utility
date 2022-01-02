@@ -10,7 +10,6 @@ from dateutil.parser import parse as parse_date
 from nltk.tokenize import word_tokenize
 from nltk.stem import RegexpStemmer
 import pandas as pd
-from .static import SWEAR_WORDS
 import numpy as np
 
 
@@ -133,15 +132,16 @@ class Chat(object):
         return [m.tokenise(stem=stem) for m in self.messages if m.author == author]
 
     # built-in analytical methods
-    def get_authors_by_foul_mouth(self) -> dict:
+    def get_authors_by_words(self, words: List[str]) -> dict:
         """
-        return a dict with the counts of swear words per person
+        return a dict with the counts of times a word in the supplied
+        word list has been used
         """
 
         authors = {name: 0 for name in self.participants}
         for message in self.messages:
-            no_bad_words = len([w for w in message.tokenise(True) if w in SWEAR_WORDS])
-            authors[message.author]+=no_bad_words
+            no_mentioned_words = len([w for w in message.tokenise(True) if w in words])
+            authors[message.author]+=no_mentioned_words
         return authors
 
     def get_contributions_by_author(self) -> dict:
@@ -210,6 +210,9 @@ class Chat(object):
     # dunders
     def __len__(self):
         return len(self.messages)
+    
+    def __repr__(self) -> str:
+        return str(self.create_df())
     
     # support subscripts - return a new chat for a smaller slice
     def __getitem__(self, key):
