@@ -10,7 +10,7 @@ import numpy as np
 def test_parse_line():
     l = '27/04/2021, 08:18 - Kyle: Number gas poor nothing will statement.'
     # action
-    message_date, message_author, message_content = Message.parse_line(l)
+    message_date, message_author, message_content = Message.parse_line(l, day_first=True)
 
     # assert
     assert isinstance(message_date,datetime.datetime)
@@ -23,7 +23,7 @@ def test_multiple_parse_line():
 
     # act
     for l in lines:
-        time, author, content = Message.parse_line(l)
+        time, author, content = Message.parse_line(l, day_first=True)
 
         # assert
         assert isinstance(time,datetime.datetime)
@@ -37,6 +37,15 @@ def test_is_new_message_happy():
     res = Chat._is_new_message(text)
 
     assert res
+
+def test_is_new_message_happy_stringified_message():
+    # arr
+    text = r'2020-08-28 18:33 - John: Maybe going through them might be ok'
+
+    res = Chat._is_new_message(text)
+
+    assert res
+
 
 def test_is_new_message_unhappy():
     # arr

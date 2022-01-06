@@ -1,7 +1,8 @@
 from typing import (
     List,
     Tuple,
-    Callable
+    Callable,
+    Union
 )
 from pydantic import BaseModel
 import datetime
@@ -54,9 +55,9 @@ class Message(BaseModel):
         return f'{self.time} - {self.author}: {self.content}'
 
     @classmethod
-    def from_line(cls, line: str):
+    def from_line(cls, line: str, day_first: bool):
         try:
-            time, author, content = cls.parse_line(line)
+            time, author, content = cls.parse_line(line, day_first)
         except:
             raise ParsingException(f'Could not parse line: {bytes(line, encoding="utf-8")} | Length: {len(line)}')
         return cls(
@@ -66,18 +67,26 @@ class Message(BaseModel):
         )
     
     @staticmethod
-    def parse_line(line: str) -> Tuple[datetime.datetime, str, str]:
-        p_reg = re.compile(r'(^[0-9]{2}/[0-9]{2}/[0-9]{4}\, [0-9]{2}\:[0-9]{2}) - (.*?)\: (.*)$')
+    def parse_line(line: str, day_first: bool) -> Tuple[datetime.datetime, str, str]:
+        p_reg_raw = re.compile(r'(^[0-9]{2}/[0-9]{2}/[0-9]{4}\, [0-9]{2}\:[0-9]{2}) - (.*?)\: (.*)$')
+        p_reg_msg = re.compile(r'(^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}\:[0-9]{2}\:[0-9]{2}) - (.*?)\: (.*)$')
+        r = p_reg_msg.search(line)
+        if not r:
+            r = p_reg_raw.search(line)
         try:
-            time, author, content = p_reg.search(line).groups()
-        except: 
+            time, author, content = r.groups()
+        except AttributeError: 
             # likely to be a system message
-            sys_reg = re.compile(r'(^[0-9]{2}/[0-9]{2}/[0-9]{4}\, [0-9]{2}\:[0-9]{2}).*((?<=\- ).*$)')
-            time, content = sys_reg.search(line).groups()
+            sys_reg_raw = re.compile(r'(^[0-9]{2}/[0-9]{2}/[0-9]{4}\, [0-9]{2}\:[0-9]{2}).*((?<=\- ).*$)')
+            sys_reg_msg = re.compile(r'(^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}\:[0-9]{2}\:[0-9]{2}).*((?<=\- ).*$)')
+            r = sys_reg_msg.search(line)
+            if not r:
+                r = sys_reg_raw.search(line)
+            time, content = r.groups()
             author = '_SYSTEM_'
         
         # clean up a bit with right date type and remove newlines
-        time = parse_date(time, dayfirst=True)
+        time = parse_date(time, dayfirst=day_first)
         content = content.rstrip()
 
         return time, author, content
@@ -86,7 +95,8 @@ class Message(BaseModel):
 
 class Chat(object):
 
-    def __init__(self, lines: List[str] = None):
+    def __init__(self, lines: List[str] = None, day_first: bool = True):
+        self.day_first = day_first
         if lines:
             self._raw_lines = lines
             self.messages = self._build_messages(lines)
@@ -132,13 +142,27 @@ class Chat(object):
     def get_authors_by_words(self, words: List[str]) -> dict:
         """
         return a dict with the counts of times a word in the supplied
-        word list has been used
+        word list has been used. Accounts for stemming.
         """
 
         authors = {name: 0 for name in self.participants}
         for message in self.messages:
             no_mentioned_words = len([w for w in message.tokenise(True) if w in words])
             authors[message.author]+=no_mentioned_words
+        return authors
+
+    def get_authors_by_phrases(self, words: List[str], match_case: bool = False) -> dict:
+        """
+        return a dict with the counts of times an exact word or phrase in the supplied
+        word list has been used
+        """
+        if not match_case:
+            words = [w.lower() for w in words]
+        authors = {name: 0 for name in self.participants}
+        for message in self.messages:
+            for word_phrase in words:
+                content = message.content.lower() if not match_case else message.content
+                authors[message.author]+=int(word_phrase in content)
         return authors
 
     def get_contributions_by_author(self) -> dict:
@@ -191,9 +215,12 @@ class Chat(object):
     @staticmethod
     def _is_new_message(line: str) -> bool:
         # starts with a date?
-        dt_reg = r'^[0-9]{2}/[0-9]{2}/[0-9]{4}'
-        r = re.compile(dt_reg)
-        return bool(r.match(line))
+        # check both raw and stringified message
+        dt_reg_raw = r'^[0-9]{2}/[0-9]{2}/[0-9]{4}'
+        dt_reg_msg= r'^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+        r_raw = re.compile(dt_reg_raw)
+        r_msg = re.compile(dt_reg_msg)
+        return bool(r_raw.match(line)) or bool(r_msg.match(line))
 
     @property
     def messages(self):
@@ -201,7 +228,7 @@ class Chat(object):
 
     @messages.setter
     def messages(self, lines: List[str]):
-        self._messages = [ Message.from_line(line) for line in lines if line != '\n']
+        self._messages = [ Message.from_line(line, self.day_first) for line in lines if line != '\n']
         self.participants = set(m.author for m in self._messages)
     
     # dunders
@@ -209,7 +236,34 @@ class Chat(object):
         return len(self.messages)
     
     def __repr__(self) -> str:
-        return str(self.create_df())
+        msgs = '\n'.join([
+            f"{m.author[0]}: {m.content}" for m in self.messages
+        ])
+        return msgs
+
+
+    def __lshift__(self, value: str):
+        lines = [ str(m) for m in self.messages if value in m.content]
+        return Chat(lines)
+
+    def __rshift__(self, value: str):
+        lines = [ str(m) for m in self.messages if not value in m.content]
+        return Chat(lines)
+
+    def __and__(self, value: Union[List[str], str]):
+        if isinstance(value, list):
+            lines = [ str(m) for m in self.messages if m.author in value]
+        else:
+            lines = [ str(m) for m in self.messages if m.author == value]
+        return Chat(lines)
+
+    def __or__(self, value: Union[List[str], str]):
+        if isinstance(value, list):
+            lines = [ str(m) for m in self.messages if not m.author in value]
+        else:
+            lines = [ str(m) for m in self.messages if m.author != value]
+        return Chat(lines)
+
     
     # support subscripts - return a new chat for a smaller slice
     def __getitem__(self, key):
